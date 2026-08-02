@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Boot</title>
+  <style>
+    :root {
+      --primary: #00ffcc;
+      --primary-dim: rgba(0, 255, 204, 0.2);
+      --bg: #050b14;
+      --danger: #ff0055;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--primary);
+      font-family: 'Courier New', Courier, monospace;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* CRT Scanline & Vignette Effects */
+    body::before {
+      content: " ";
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      z-index: 10;
+      background-size: 100% 4px, 6px 100%;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.8) 100%);
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    /* Container */
+    .boot-container {
+      width: 600px;
+      max-width: 90%;
+      padding: 30px;
+      border: 1px solid var(--primary-dim);
+      background: rgba(5, 11, 20, 0.85);
+      box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header & Branding */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--primary);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 14px;
+    }
+
+    /* Console Terminal Box */
+    .terminal {
+      height: 150px;
+      overflow-y: hidden;
+      margin-bottom: 25px;
+      font-size: 13px;
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      opacity: 0.85;
+    }
+
+    .log-line {
+      animation: fadeIn 0.1s forwards;
+    }
+
+    .log-line::before {
+      content: "> ";
+      color: var(--primary);
+    }
+
+    /* Progress Section */
+    .progress-section {
+      margin-top: 15px;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 12px;
+      background: var(--primary-dim);
+      border: 1px solid var(--primary);
+      padding: 2px;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+      transition: width 0.2s ease;
+    }
+
+    /* Footer status */
+    .status-footer {
+      margin-top: 25px;
+      text-align: center;
+      font-weight: bold;
+      letter-spacing: 3px;
+      height: 20px;
+    }
+
+    /* Animations */
+    .blink {
+      animation: blinker 1s linear infinite;
+    }
+
+    @keyframes blinker {
+      50% { opacity: 0; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Glitch effect on completion */
+    .complete-glitch {
+      color: #fff;
+      text-shadow: 2px 0 var(--danger), -2px 0 var(--primary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="boot-container">
+    <div class="header">
+      <span>AETHER-OS v4.09</span>
+      <span class="blink">SECURE_LINK</span>
+    </div>
+
+    <div class="terminal" id="terminal"></div>
+
+    <div class="progress-section">
+      <div class="progress-info">
+        <span id="status-text">INITIALIZING CORE...</span>
+        <span id="percentage">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <div class="status-footer" id="footer-status">SYSTEM OFFLINE</div>
+  </div>
+
+  <script>
+    const logs = [
+      "Initializing hardware abstraction layer...",
+      "Verifying quantum core signature...",
+      "Loading memory map [0x00000000 - 0xFFFFFFFF]...",
+      "Allocating virtual threads...",
+      "Bypassing firewall protocols...",
+      "Establishing secure socket handshake...",
+      "Loading neural parameters (70B weights)...",
+      "Calibrating optical HUD renders...",
+      "Mounting file system /dev/nvme0n1p2...",
+      "Synchronizing system clock with atomic server...",
+      "Running final diagnostics...",
+      "All systems nominal."
+    ];
+
+    const terminal = document.getElementById('terminal');
+    const progressFill = document.getElementById('progress-fill');
+    const percentage = document.getElementById('percentage');
+    const statusText = document.getElementById('status-text');
+    const footerStatus = document.getElementById('footer-status');
+
+    let currentStep = 0;
+    const totalSteps = logs.length;
+
+    function bootSequence() {
+      if (currentStep < totalSteps) {
+        // Add log to terminal
+        const logLine = document.createElement('div');
+        logLine.className = 'log-line';
+        logLine.textContent = logs[currentStep];
+        terminal.appendChild(logLine);
+
+        // Update progress bar
+        currentStep++;
+        const percent = Math.round((currentStep / totalSteps) * 100);
+        progressFill.style.width = percent + '%';
+        percentage.textContent = percent + '%';
+
+        // Update status text dynamically
+        if (percent > 30 && percent < 70) {
+          statusText.textContent = "DECRYPTING MODULES...";
+        } else if (percent >= 70 && percent < 100) {
+          statusText.textContent = "ESTABLISHING OVERLINK...";
+        }
+
+        // Randomize speed for realistic "loading" pauses
+        const randomDelay = Math.floor(Math.random() * 300) + 150;
+        setTimeout(bootSequence, randomDelay);
+      } else {
+        // Boot complete state
+        setTimeout(() => {
+          statusText.textContent = "BOOT COMPLETE";
+          footerStatus.textContent = "ACCESS GRANTED";
+          footerStatus.classList.add("complete-glitch");
+        }, 300);
+      }
+    }
+
+    // Start boot sequence after short delay
+    setTimeout(bootSequence, 500);
+  </script>
+</body>
+</html>
